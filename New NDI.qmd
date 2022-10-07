@@ -1,0 +1,101 @@
+---
+title: "NDI"
+author: "Coda Rayo-Garza"
+format: html
+editor: visual
+---
+
+## Using the NDI Package
+
+The NDI Package was created by Ian D. Buller. It includes several depravation indices. Here we will use the NDI Deprivation Index.
+
+## First, load packages
+
+```{r}
+#|warning: false
+
+
+library(waywiser)
+library(dplyr)
+library(tidyr)
+library(sfdep)
+library(spdep)
+library(gridExtra)
+library(grid)
+library(ndi)
+library(ggplot2)
+library(sf)
+library(tidycensus) # a dependency for the "ndi"" package
+library(tigris) # a dependency for the "ndi"" package
+options(scipen=999)
+```
+
+## Second, call the ndi values and load geometries 
+
+```{r}
+#| warning: false
+#| error: false
+#| output: false
+
+
+
+# Compute the NDI (Messer) values (2016-2020 5-year ACS) for TX census tracts
+census_api_key("42539e850e81857ea4d3a8219088cab9544e88bb")
+TX2020messer <- ndi::messer(state = "TX", year = 2020)
+
+# Obtain the 2020 census tracts from the "tigris" package
+tract2020TX <- tigris::tracts(state = "TX", year = 2020, cb = TRUE)
+
+# Join the NDI (Messer) values to the census tract geometry
+TX2020messer <- merge(tract2020TX, TX2020messer$ndi, by = "GEOID")
+
+TX2020messer
+```
+
+## Third, visualize the index
+
+```{r}
+
+# Visualize the NDI (Messer) values  for TX, U.S.A., counties
+## Continuous Index
+ggplot2::ggplot() + 
+  ggplot2::geom_sf(data = TX2020messer, 
+                   ggplot2::aes(fill = NDI),
+                   size = 0.20,
+                   color = "white") +
+  ggplot2::theme_minimal() + 
+  ggplot2::scale_fill_viridis_c() +
+  ggplot2::labs(fill = "Index (Continuous)",
+                caption = "Source: U.S. Census ACS 2020 5 Year estimates") +
+  ggplot2::ggtitle("Neighborhood Deprivation Index (Messer)",
+                   subtitle = "TX counties as the referent")
+```
+
+### Alternative option: Visualize with quartiles
+
+```{r}
+## Categorical Index
+
+### Rename "9-NDI not avail" level as NA for plotting
+TX2020messer$NDIQuartNA <- factor(replace(as.character(TX2020messer$NDIQuart), 
+                                            TX2020messer$NDIQuart == "9-NDI not avail", NA),
+                                         c(levels(TX2020messer$NDIQuart)[-5], NA))
+
+plot2<-ggplot2::ggplot() + 
+  ggplot2::geom_sf(data = TX2020messer, 
+                   ggplot2::aes(fill = NDIQuartNA),
+                   size = 0.20,
+                   color = "white") +
+  ggplot2::theme_minimal() + 
+  ggplot2::scale_fill_viridis_d(guide = ggplot2::guide_legend(reverse = TRUE),
+                                na.value = "grey80") +
+  ggplot2::labs(fill = "Index (Categorical)",
+                caption = "Source: U.S. Census ACS 2020 5-Year estimates") +
+  ggplot2::ggtitle("Neighborhood Deprivation Index (Messer) Quartiles",
+                   subtitle = "TX counties as the referent") 
+plot2
+
+# ggplotly(plot2, tooltip = "text")
+
+
+```
